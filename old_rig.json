@@ -1,0 +1,8 @@
+[
+    "org.janelia.fictrac-collision",
+    "org.janelia.setup-cameras-n-gon",
+    "org.janelia.force-render-rate",
+    "org.janelia.general",
+    "org.janelia.ni-daq-mx",
+    "org.janelia.background"    
+]
