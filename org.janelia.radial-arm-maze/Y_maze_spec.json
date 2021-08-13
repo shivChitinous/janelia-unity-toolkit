@@ -1,5 +1,5 @@
 {
-  "height": 1.0,
+  "height": 10.0,
   "arms": [
     { "angleDegs":  45.0, "length":  8.0, "width": 4.0 },
     { "angleDegs": 180.0, "length": 10.0, "width": 4.0 },
