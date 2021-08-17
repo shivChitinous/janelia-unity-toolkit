@@ -13,7 +13,7 @@ namespace Janelia
         class KeyboardUpdater : Janelia.KinematicSubject.IKinematicUpdater
         {
             public float deltaRotation = 1.0f;
-            public float deltaTranslation = 0.01f;
+            public float deltaTranslation = 0.005f;
 
             // Must be defined in this sublcass, but can be empty if
             // this subclass does nothing special as the application starts.
