@@ -1,4 +1,4 @@
-﻿// A class for reading from and writing to National Instruments data acquisition (DAQ)
+// A class for reading from and writing to National Instruments data acquisition (DAQ)
 // hardware, using the second-generation NI-DAQmx driver.  Assumes that the driver
 // has been downloaded and installed from National Instruments (e.g., from
 // https://www.ni.com/en-us/support/downloads/drivers/download.ni-daqmx.html)
@@ -12,6 +12,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using UnityEngine;
+using System.Threading.Tasks;
 
 namespace Janelia
 {
@@ -218,6 +219,34 @@ namespace Janelia
                 buffer, (uint)buffer.Length, ref numReadPerChannel, IntPtr.Zero);
 
             return StatusIndicatesSuccess(status);
+        }
+
+        // Read from all input channels created with `CreateInputs` asynchronously. Returns `true` if the reading was successful.
+        public static async Task<bool> ReadFromInputsAsync(InputParams p, double[] buffer, int numReadPerChannel)
+        {
+            if (!_inputParamsToTaskHandle.ContainsKey(p))
+            {
+                _latestError = "Cannot read before inputs are created";
+                return false;
+            }
+
+            ulong taskHandle = _inputParamsToTaskHandle[p];
+
+            int numRead = 0;
+            await Task.Run(() =>
+            {
+                int status = DAQmxReadAnalogF64(taskHandle, -1, p.timeoutSecs, DAQmx_Val_GroupByChannel,
+                    buffer, (uint)buffer.Length, ref numRead, IntPtr.Zero);
+
+                numReadPerChannel = numRead / p.channelNames.Length;
+
+                if (!StatusIndicatesSuccess(status))
+                {
+                    _latestError = "Error in asynchronous read";
+                }
+            });
+
+            return _latestError == NoError;
         }
 
         // Get the index for a particular channel's data item in the `buffer` produced by `ReadFromInputs`.
