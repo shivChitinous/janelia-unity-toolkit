@@ -59,7 +59,7 @@ namespace Janelia
                 set { Restrict(); voltageMax = value; }
             }
 
-            internal double samplesPerSec = 1000.0;
+            internal double samplesPerSec = 20000.0;
             public double SamplesPerSec
             {
                 get { return samplesPerSec; }
