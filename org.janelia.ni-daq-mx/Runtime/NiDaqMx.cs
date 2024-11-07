@@ -68,7 +68,7 @@ namespace Janelia
 
             // The sample buffer size must be big enough for all samples from all channels,
             // since they are all read at once.
-            internal ulong sampleBufferSize = 1000;
+            internal ulong sampleBufferSize = 40000;
             public ulong SampleBufferSize
             {
                 get { return sampleBufferSize; }
