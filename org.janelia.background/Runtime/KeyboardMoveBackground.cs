@@ -75,7 +75,7 @@ namespace Janelia
             float compensationX = (_initialEulerAngles.y - transform.eulerAngles.y) / 360.0f;
             Vector2 compensation = headingCompensation ? new Vector2(compensationX, 0) : Vector2.zero;
 
-            int which = 2;
+            int which = 1;
             Janelia.BackgroundUtilities.SetCylinderTextureOffset(_textureOffset + compensation, which);
         }
 
