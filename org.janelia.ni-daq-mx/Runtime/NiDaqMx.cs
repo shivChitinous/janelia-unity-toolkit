@@ -60,7 +60,7 @@ namespace Janelia
                 set { Restrict(); voltageMax = value; }
             }
 
-            internal double samplesPerSec = 20000.0;
+            internal double samplesPerSec = 5000.0;
             public double SamplesPerSec
             {
                 get { return samplesPerSec; }
@@ -69,7 +69,7 @@ namespace Janelia
 
             // The sample buffer size must be big enough for all samples from all channels,
             // since they are all read at once.
-            internal ulong sampleBufferSize = 40000;
+            internal ulong sampleBufferSize = 5000;
             public ulong SampleBufferSize
             {
                 get { return sampleBufferSize; }
