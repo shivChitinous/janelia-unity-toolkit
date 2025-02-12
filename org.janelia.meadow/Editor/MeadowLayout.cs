@@ -71,6 +71,16 @@ namespace Janelia
             EditorGUILayout.EndVertical();
         }
 
+        // Can be used to lay out a meadow without launching the GUI as follows:
+        //   MeadowLayout layout = new MeadowLayout();
+        //   string jsonPath = "C:/Users/labadmin/Documents/VR/meadowSpec.json";
+        //   layout.Create(jsonPath);
+        public void Create(string jsonPath, float scale = 1)
+        {
+            _jsonPath = jsonPath;
+            CreateInstances(scale);
+        }
+
         private void DeleteInstances()
         {
             Delete(CLUTTER_NAME);
@@ -90,17 +100,17 @@ namespace Janelia
             }
         }
 
-        private void CreateInstances()
+        private void CreateInstances(float scale = 1)
         {
             DeleteInstances();
             LoadJson();
             if (_importPkgs)
             {
-                ImportAllPackages();
+                ImportAllPackages(scale);
             }
             else
             {
-                AfterImporting();
+                AfterImporting(scale);
             }
         }
 
@@ -129,14 +139,14 @@ namespace Janelia
             }
         }
 
-        private void ImportAllPackages()
+        private void ImportAllPackages(float scale)
         {
             List<string> pkgPathsToImport = GetAllPackagePaths();
             _importer.Import(pkgPathsToImport, (bool success, string error) =>
             {
                 if (success)
                 {
-                    AfterImporting();
+                    AfterImporting(scale);
                 }
             });
         }
@@ -163,7 +173,7 @@ namespace Janelia
             return result;
         }
 
-        private void AfterImporting()
+        private void AfterImporting(float scale)
         {
             if (_seed != 0)
             {
@@ -174,9 +184,9 @@ namespace Janelia
 
             _clutter = new GameObject(); ;
             _clutter.name = CLUTTER_NAME;
-            PlaceClutter();
+            PlaceClutter(scale);
 
-            CreateGround();
+            CreateGround(scale);
             SetupLighting();
 
             QualitySettings.lodBias = _lodBias;
@@ -232,7 +242,7 @@ namespace Janelia
             return guids.Where(g => Path.GetFileNameWithoutExtension(AssetDatabase.GUIDToAssetPath(g)) == modelName).ToArray();
         }
 
-        private void PlaceClutter()
+        private void PlaceClutter(float scale)
         {
             float dX = _spec.xWidth10cm / _spec.xNumClutterCells;
             float dZ = _spec.zWidth10cm / _spec.zNumClutterCells;
@@ -244,28 +254,30 @@ namespace Janelia
                 float z = -_spec.zWidth10cm / 2 + dZ / 2;
                 for (int iZ = 0; iZ < _spec.zNumClutterCells; iZ++)
                 {
-                    float jitterX = UnityEngine.Random.Range(-dX * _spec.clutterJitterFraction, dX * _spec.clutterJitterFraction);
-                    float jitterZ = UnityEngine.Random.Range(-dZ * _spec.clutterJitterFraction, dZ * _spec.clutterJitterFraction);
-                    Vector3 pos = new Vector3(x + jitterX, y, z + jitterZ);
-                    float rotZ = UnityEngine.Random.Range(0, 360);
-                    Vector3 euler = new Vector3(0, rotZ, 0);
-                    float t = UnityEngine.Random.Range(0.0f, 1.0f);
-                    foreach (Master master in _clutterMasters)
+                    if ((Mathf.Abs(x) > _spec.xWidthClear10cm / 2) || (Mathf.Abs(z) > _spec.zWidthClear10cm / 2))
                     {
-                        if (master.Choose(t))
+                        float jitterX = UnityEngine.Random.Range(-dX * _spec.clutterJitterFraction, dX * _spec.clutterJitterFraction);
+                        float jitterZ = UnityEngine.Random.Range(-dZ * _spec.clutterJitterFraction, dZ * _spec.clutterJitterFraction);
+                        Vector3 pos = new Vector3(x + jitterX, y, z + jitterZ);
+                        float rotZ = UnityEngine.Random.Range(0, 360);
+                        Vector3 euler = new Vector3(0, rotZ, 0);
+                        float t = UnityEngine.Random.Range(0.0f, 1.0f);
+                        foreach (Master master in _clutterMasters)
                         {
-                            InstantiateMaster(master, "_" + i++, pos, euler, _clutter);
-                            break;
+                            if (master.Choose(t))
+                            {
+                                InstantiateMaster(master, "_" + i++, pos, euler, scale, _clutter);
+                                break;
+                            }
                         }
                     }
                     z += dZ;
                 }
-
                 x += dX;
             }
         }
 
-        private void InstantiateMaster(Master master, String suffix, Vector3 pos, Vector3 euler, GameObject parent)
+        private void InstantiateMaster(Master master, String suffix, Vector3 pos, Vector3 euler, float scale, GameObject parent)
         {
             GameObject obj = new GameObject();
             String name = null;
@@ -286,18 +298,19 @@ namespace Janelia
             lodGroup.RecalculateBounds();
 
             obj.name = name;
-            obj.transform.position = pos;
-            obj.transform.eulerAngles = euler;
+            obj.transform.localPosition = scale * pos;
+            obj.transform.localEulerAngles = euler;
+            obj.transform.localScale = new Vector3(scale, scale, scale);
             obj.transform.SetParent(parent.transform);
         }
 
-        private void CreateGround()
+        private void CreateGround(float scale)
         {
             if (_createGround)
             {
                 _ground = GameObject.CreatePrimitive(PrimitiveType.Plane);
                 _ground.name = GROUND_NAME;
-                float scale = 0.2f;
+                scale *= 0.2f;
                 _ground.transform.localScale = new Vector3(_spec.xWidth10cm * scale, 1, _spec.zWidth10cm * scale);
 
                 if (_spec.groundTextureFilePath.Length > 0)
@@ -404,6 +417,8 @@ namespace Janelia
         {
             public float xWidth10cm;
             public float zWidth10cm;
+            public float xWidthClear10cm = 0;
+            public float zWidthClear10cm = 0;
             public int xNumClutterCells;
             public int zNumClutterCells;
             public float clutterJitterFraction = 0.3f;
