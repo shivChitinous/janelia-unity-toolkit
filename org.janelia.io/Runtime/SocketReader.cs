@@ -37,12 +37,6 @@ namespace Janelia
             OnDisable();
         }
 
-        public void ForwardTo(string hostname = "127.0.0.1", int port = 2100)
-        {
-            _forwardingHostname = hostname;
-            _forwardingPort = port;
-        }
-
         public void Start()
         {
             if (debug)
@@ -144,8 +138,6 @@ namespace Janelia
                 // `byte []` buffer passed in as argument.  So, to avoid possible problems with garbage collection,
                 // use the lower-level `Socket` approach.
                 Socket socket;
-                Socket forwardingSocket = null;
-                EndPoint forwardingEndpoint = null;
 
                 try
                 {
@@ -156,13 +148,6 @@ namespace Janelia
                     socket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.ReuseAddress, true);
 
                     socket.Bind(new IPEndPoint(IPAddress.Parse(_hostname), _port));
-
-                    if (_forwardingHostname != null)
-                    {
-                        forwardingSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-                        forwardingSocket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.ReuseAddress, true);
-                        forwardingEndpoint = new IPEndPoint(IPAddress.Parse(_forwardingHostname), _forwardingPort);
-                    }
                 }
                 catch (SocketException socketException)
                 {
@@ -180,9 +165,6 @@ namespace Janelia
                             Debug.Log(Now() + "SocketReader waiting to receive UDP datagram");
 
                         int length = socket.Receive(readBuffer);
-
-                        if (forwardingSocket != null)
-                            forwardingSocket.SendTo(readBuffer, length, System.Net.Sockets.SocketFlags.None, forwardingEndpoint);
 
                         if (debugSlowly)
                             Debug.Log("SocketReader read " + length + " bytes");
@@ -324,9 +306,6 @@ namespace Janelia
         private int _connectRetryMs;
         private int _bufferSizeBytes;
         private int _readBufferCount;
-
-        private string _forwardingHostname;
-        private int _forwardingPort;
 
         private TcpClient _clientSocket;
 

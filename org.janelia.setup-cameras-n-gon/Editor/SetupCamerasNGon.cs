@@ -49,9 +49,7 @@ namespace Janelia
             window._offsetX = offsetX;
             window._offsetZ = offsetZ;
 
-            window.ReconcileCameraScreens();
-            window._rotationY = window.RotationYCentered();
-
+            window.OnGUI();
             window.UpdateCameras();
         }
 
@@ -123,33 +121,6 @@ namespace Janelia
             _near = EditorGUILayout.FloatField("Near", _near);
             _far = EditorGUILayout.FloatField("Far", _far);
 
-            ReconcileCameraScreens();
-
-            for (int i = 0; i < _cameraScreens.Count; i++)
-            {
-                _cameraScreens[i].camera = (Camera)EditorGUILayout.ObjectField("Camera " + (i + 1), _cameraScreens[i].camera, typeof(Camera), true);
-                _cameraScreens[i].screen = (GameObject)EditorGUILayout.ObjectField("Screen " + (i + 1), _cameraScreens[i].screen, typeof(GameObject), true);
-            }
-
-            if (GUI.changed)
-            {
-                if ((_numCameras != numCamerasBefore) || (_numEmptySides != numEmptySidesBefore))
-                {
-                    // Recompute _rotationY only when a manually set value might no longer make sense.
-                    _rotationY = RotationYCentered();
-                }
-            }
-
-            if (GUILayout.Button("Update"))
-            {
-                UpdateCameras();
-            }
-
-            EditorGUILayout.EndVertical();
-        }
-
-        private void ReconcileCameraScreens()
-        {
             while (_cameraScreens.Count < _numCameras)
             {
                 _cameraScreens.Add(new CameraScreen());
@@ -172,6 +143,28 @@ namespace Janelia
                     }
                 }
             }
+
+            for (int i = 0; i < _cameraScreens.Count; i++)
+            {
+                _cameraScreens[i].camera = (Camera)EditorGUILayout.ObjectField("Camera " + (i + 1), _cameraScreens[i].camera, typeof(Camera), true);
+                _cameraScreens[i].screen = (GameObject)EditorGUILayout.ObjectField("Screen " + (i + 1), _cameraScreens[i].screen, typeof(GameObject), true);
+            }
+
+            if (GUI.changed)
+            {
+                if ((_numCameras != numCamerasBefore) || (_numEmptySides != numEmptySidesBefore))
+                {
+                    // Recompute _rotationY only when a manually set value might no longer make sense.
+                    _rotationY = RotationYCentered();
+                }
+            }
+
+            if (GUILayout.Button("Update"))
+            {
+                UpdateCameras();
+            }
+
+            EditorGUILayout.EndVertical();
         }
 
         private void OnSceneSaved(UnityEngine.SceneManagement.Scene scene)
