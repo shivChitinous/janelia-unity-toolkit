@@ -11,12 +11,9 @@ namespace Janelia
         public int readBufferSizeBytes = 256;
         public int readBufferCount = 2;
 
-        public int forwardingPort = 0;
-
         public GameObject[] controlled = new GameObject[2];
         public float scale = 1;
         public Vector3 angleOffsetDegs = Vector3.zero;
-        public bool ignoreY = false;
 
         public bool log = true;
 
@@ -25,45 +22,12 @@ namespace Janelia
 
         public void Start()
         {
-            bool forwardedTo = false;
-            if (forwardingPort != 0)
-            {
-                string[] args = System.Environment.GetCommandLineArgs();
-                for (int i = 0; i < args.Length; ++i)
-                {
-                    if (args[i] == "-forwardedto")
-                    {
-                        forwardedTo = true;
-                    }
-                }
-
-                if (forwardedTo)
-                {
-                    port = forwardingPort;
-                }
-            }
-
             _socketMessageReader = new SocketMessageReader(HEADER, server, port, readBufferSizeBytes, readBufferCount);
-
-            if (forwardingPort != 0)
-            {
-                if (!forwardedTo)
-                {
-                    _socketMessageReader.ForwardTo(server, forwardingPort);
-                }
-            }
-
             _socketMessageReader.Start();
 
             _received = new bool[controlled.Length];
             _position = new Vector3[controlled.Length];
             _eulerAngles = new Vector3[controlled.Length];
-
-            _initialPosition = new Vector3[controlled.Length];
-            for (int i = 0; i < _initialPosition.Length; ++i)
-            {
-                _initialPosition[i] = controlled[i].transform.position;
-            }
         }
 
         public void Update()
@@ -84,10 +48,7 @@ namespace Janelia
                     _eulerAngles[i] *= Mathf.Rad2Deg;
                     _eulerAngles[i] += angleOffsetDegs;
 
-                    float y = obj.transform.position.y;
-                    obj.transform.position = _initialPosition[i] + _position[i];
-                    if (ignoreY)
-                        obj.transform.position = new Vector3(obj.transform.position.x, y, obj.transform.position.z);
+                    obj.transform.position = _position[i];
                     obj.transform.eulerAngles = _eulerAngles[i];
 
                     if (tweakReceivedPoseDelegate != null)
@@ -206,11 +167,8 @@ namespace Janelia
 
                     long latencyMs = finalTimestampMs - sentTimestampMs;
 
-                    if (latencyMs >= 0)
-                    {
-                        _latencySum += latencyMs;
-                        _latencyCount += 1;
-                    }
+                    _latencySum += latencyMs;
+                    _latencyCount += 1;
                     if (_latencyCount % 1000 == 0)
                     {
                         Debug.Log("Mean latency " + (((float)_latencySum) / _latencyCount) + " ms");
@@ -225,7 +183,6 @@ namespace Janelia
         private const Byte SEPARATOR = (Byte)',';
         private SocketMessageReader _socketMessageReader;
 
-        private Vector3[] _initialPosition;
         private bool[] _received;
         private Vector3[] _position;
         private Vector3[] _eulerAngles;
