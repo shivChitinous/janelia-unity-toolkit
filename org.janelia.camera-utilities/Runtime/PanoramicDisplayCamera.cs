@@ -31,6 +31,7 @@ namespace Janelia
         // `SetDisplaySurfaceData`, below, and also in `ExampleUsingPanoramiceDisplayCamera.cs`.
         public float surfaceMaskScale = 1;
         public float surfaceColorCorrectionScale = 0;
+        public bool invertColorAtMask0 = false;
 
         // If the panorama is to be displayed with more than one external display or projector, the images for
         // all the displays are adjoined horizontally into a single wide image, and this image "bleeds" from
@@ -51,9 +52,10 @@ namespace Janelia
         public int progressBoxSize = 50;
 #endif
 
-        public void SetBottomBias(bool enabled)
+        public void SetAntialiasing(int level)
         {
-            _material.SetInt("_BottomBias", enabled ? 1 : 0);
+            int clamped = Mathf.Clamp(level, 0, 2);
+            _material.SetInt("_Antialiasing", clamped);
         }
 
         // A larger value (e.g., 1) reduces crackes between cameras.
@@ -153,37 +155,60 @@ namespace Janelia
             SetupSourceCameras(sourceWidth, sourceWidth);
             SetupBlackTexture(sourceWidth, sourceWidth);
 
-            Debug.Log("QualitySettings.GetQualityLevel() " + QualitySettings.GetQualityLevel() + " (of " + QualitySettings.count + " possible)");
-            Debug.Log("QualitySettings.antiAliasing " + QualitySettings.antiAliasing);
-            Debug.Log("QualitySettings.shadows " + QualitySettings.shadows);
-            Debug.Log("QualitySettings.shadowResolution " + QualitySettings.shadowResolution);
+            Debug.Log($"QualitySettings.GetQualityLevel() {QualitySettings.GetQualityLevel()} (of {QualitySettings.count} possible)");
+            Debug.Log($"QualitySettings.antiAliasing {QualitySettings.antiAliasing}");
+            Debug.Log($"QualitySettings.shadows {QualitySettings.shadows}");
+            Debug.Log($"QualitySettings.shadowResolution {QualitySettings.shadowResolution}");
+#if PROGRESS_BOX
+            if (PlayerPrefs.HasKey(PLAYER_PREF_KEY_PROGRESS_BOX_POSITION_X) && PlayerPrefs.HasKey(PLAYER_PREF_KEY_PROGRESS_BOX_POSITION_Y) && PlayerPrefs.HasKey(PLAYER_PREF_KEY_SHOW_PROGRESS_BOX))
+            {
+                showProgressBox = PlayerPrefs.GetInt(PLAYER_PREF_KEY_SHOW_PROGRESS_BOX) != 0;
+                progressBoxPosition.x = PlayerPrefs.GetInt(PLAYER_PREF_KEY_PROGRESS_BOX_POSITION_X);
+                progressBoxPosition.y = PlayerPrefs.GetInt(PLAYER_PREF_KEY_PROGRESS_BOX_POSITION_Y);
+                Debug.Log($"Read Progress Box position from preferences: ({progressBoxPosition.x}, {progressBoxPosition.y}) and visible: {showProgressBox}.");
+            }
+#endif
         }
 
         public void Update()
         {
             _material.SetFloat("_MaskScale", surfaceMaskScale);
             _material.SetFloat("_ColorCorrectionScale", surfaceColorCorrectionScale);
+            _material.SetInt("_InvertColorAtMask0", invertColorAtMask0 ? 1 : 0);
 
 #if PROGRESS_BOX
-            if (Input.GetKeyDown("p"))
+            if (Input.GetKeyDown(KeyCode.P))
             {
                 showProgressBox = !showProgressBox;
-            }
-            if (Input.GetKey("w"))
+                _updatePlayerPrefs = true;
+            } else if (Input.GetKey(KeyCode.W))
             {
                 progressBoxPosition.y -= 1;
+                _updatePlayerPrefs = true;
             }
-            else if (Input.GetKey("a"))
+            else if (Input.GetKey(KeyCode.A))
             {
                 progressBoxPosition.x -= 1;
+                _updatePlayerPrefs = true;
             }
-            else if (Input.GetKey("s"))
+            else if (Input.GetKey(KeyCode.S))
             {
                 progressBoxPosition.y += 1;
+                _updatePlayerPrefs = true;
             }
-            else if (Input.GetKey("d"))
+            else if (Input.GetKey(KeyCode.D))
             {
                 progressBoxPosition.x += 1;
+                _updatePlayerPrefs = true;
+            }
+            if (_updatePlayerPrefs)
+            {
+                PlayerPrefs.SetInt(PLAYER_PREF_KEY_SHOW_PROGRESS_BOX, showProgressBox ? 1 : 0);
+                PlayerPrefs.SetInt(PLAYER_PREF_KEY_PROGRESS_BOX_POSITION_X, progressBoxPosition.x);
+                PlayerPrefs.SetInt(PLAYER_PREF_KEY_PROGRESS_BOX_POSITION_Y, progressBoxPosition.y);
+                PlayerPrefs.Save();
+                _updatePlayerPrefs = false;
+                Debug.Log($"Setting Progress Box position to ({progressBoxPosition.x}, {progressBoxPosition.y}). Visible: {showProgressBox}");
             }
 #endif
 #if PROFILE
@@ -194,7 +219,7 @@ namespace Janelia
                 float mean = _profileDeltaTimeSum / _profileDeltaTimeCount;
                 float meanMs = Mathf.Round(mean * 1000);
                 float rate = Mathf.Round(1 / mean);
-                Debug.Log("PanoramicDisplayCamera mean time between frames: " + meanMs + " ms (" + rate + " Hz)");
+                Debug.Log($"PanoramicDisplayCamera mean time between frames for the last {_profilePeriod} frames: {meanMs} ms ({rate} Hz)");
                 _profileDeltaTimeSum = 0;
                 _profileDeltaTimeCount = 0;
             }
@@ -236,6 +261,15 @@ namespace Janelia
 
         private void SetupSourceCameras(int width, int height)
         {
+            _materialCameraPositionName = new string[6];
+            _materialCameraForwardName = new string[6];
+            _materialCameraUpName = new string[6];
+            _materialCameraRightName = new string[6];
+            _materialCameraNearName = new string[6];
+            _materialCameraFovHorizName = new string[6];
+            _materialCameraFovVertName = new string[6];
+            _materialCameraTexName = new string[6];
+
             int n = 0;
             for (int i = 0; i < 6; i++)
             {
@@ -247,6 +281,16 @@ namespace Janelia
                     _initialForward[i] = sourceCameras[i].transform.forward;
                     _initialUp[i] = sourceCameras[i].transform.up;
                     _initialRight[i] = sourceCameras[i].transform.right;
+
+                    string baseName = "_Camera" + i.ToString();
+                    _materialCameraPositionName[i] = baseName + "Position";
+                    _materialCameraForwardName[i] = baseName + "Forward";
+                    _materialCameraUpName[i] = baseName + "Up";
+                    _materialCameraRightName[i] = baseName + "Right";
+                    _materialCameraNearName[i] = baseName + "Near";
+                    _materialCameraFovHorizName[i] = baseName + "FovHoriz";
+                    _materialCameraFovVertName[i] = baseName + "FovVert";
+                    _materialCameraTexName[i] = "_TexCamera" + i.ToString();
 
                     ++n;
                 }
@@ -345,7 +389,7 @@ namespace Janelia
         {
             if (sourceCameras.Count() < 5)
             {
-                Debug.LogWarning("PanoramicDisplayCamera: expecting at least 5 source cameras instead of " + sourceCameras.Count());
+                Debug.LogWarning($"PanoramicDisplayCamera: expecting at least 5 source cameras instead of {sourceCameras.Count()}");
                 return;
             }
 
@@ -360,26 +404,22 @@ namespace Janelia
 
         private void SetMaterialCamera(Material material, Camera camera, int i)
         {
-            string baseName = "_Camera" + i.ToString(); 
-
             Vector3 pos = camera.transform.position + new Vector3(0, offsetY, 0);
-            material.SetVector(baseName + "Position", movingSurface ? Vector3.zero : pos);
-            material.SetVector(baseName + "Forward", movingSurface ? _initialForward[i] : camera.transform.forward);
-            material.SetVector(baseName + "Up", movingSurface ? _initialUp[i] : camera.transform.up);
-            material.SetVector(baseName + "Right", movingSurface ? _initialRight[i] : camera.transform.right);
-            material.SetFloat(baseName + "Near", camera.nearClipPlane);
+            material.SetVector(_materialCameraPositionName[i], movingSurface ? Vector3.zero : pos);
+            material.SetVector(_materialCameraForwardName[i], movingSurface ? _initialForward[i] : camera.transform.forward);
+            material.SetVector(_materialCameraUpName[i], movingSurface ? _initialUp[i] : camera.transform.up);
+            material.SetVector(_materialCameraRightName[i], movingSurface ? _initialRight[i] : camera.transform.right);
+            material.SetFloat(_materialCameraNearName[i], camera.nearClipPlane);
             float fovHoriz = camera.fieldOfView;
             float fovVert = Camera.VerticalToHorizontalFieldOfView(fovHoriz, camera.aspect);
-            material.SetFloat(baseName + "FovHoriz", fovHoriz);
-            material.SetFloat(baseName + "FovVert", fovVert);
+            material.SetFloat(_materialCameraFovHorizName[i], fovHoriz);
+            material.SetFloat(_materialCameraFovVertName[i], fovVert);
 
             RenderTexture cameraTexture = camera.targetTexture;
             if (cameraTexture != null)
             {
                 cameraTexture.filterMode = FilterMode.Bilinear;
-
-                string name = "_TexCamera" + i.ToString();
-                material.SetTexture(name, _black ? _blackTexture : cameraTexture);
+                material.SetTexture(_materialCameraTexName[i], _black ? _blackTexture : cameraTexture);
             }
         }
 
@@ -444,6 +484,15 @@ namespace Janelia
 
         private Material _material;
 
+        string[] _materialCameraPositionName;
+        string[] _materialCameraForwardName;
+        string[] _materialCameraUpName;
+        string[] _materialCameraRightName;
+        string[] _materialCameraNearName;
+        string[] _materialCameraFovHorizName;
+        string[] _materialCameraFovVertName;
+        string[] _materialCameraTexName;
+
         private bool _black = false;
         private Texture2D _blackTexture;
 
@@ -462,6 +511,10 @@ namespace Janelia
 #if PROGRESS_BOX
         private Texture2D _progressTextureEven;
         private Texture2D _progressTextureOdd;
+        private bool _updatePlayerPrefs = false;
+        private const string PLAYER_PREF_KEY_SHOW_PROGRESS_BOX = "PanoramicDisplayCamera.ShowProgressBox";
+        private const string PLAYER_PREF_KEY_PROGRESS_BOX_POSITION_X = "PanoramicDisplayCamera.ProgressBoxPositionX";
+        private const string PLAYER_PREF_KEY_PROGRESS_BOX_POSITION_Y = "PanoramicDisplayCamera.ProgressBoxPositionY";
 #endif
 #if PROFILE
         private float _profileDeltaTimeSum = 0;
