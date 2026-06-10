@@ -24,7 +24,7 @@ Follow the [installation instructions in the main repository](https://github.com
 
 ## Details
 
-### Adding a Custom Log Entry: The Easy Way
+### Adding a Custom Log Entry
 
 Use the following steps to make a script add a custom entry to the log:
 
@@ -88,19 +88,6 @@ public class Example : MonoBehaviour
 ]
 ```
 
-### Adding a Custom Log Entry: The Performant Way
-
-The method just described causes the logger to use [Unity's JsonUtility package](https://docs.unity3d.com/ScriptReference/JsonUtility.html) to convert the custom entry into text for the JSON file. That package is carefully designed to be as efficient as possible, but to be able to handle free-form JSON structures it must allocate temporary strings. These temporaries lead to [garbage collection, which can affect application performance](https://docs.unity3d.com/Manual/UnderstandingAutomaticMemoryManagement.html).
-
-In some cases, the etnry being logged is simple enough that an alternative approach can avoid creating any temporary strings, and creating any reason for garbage collection. An example is the `LogUtilities.LogDeltaTime()` function in the `Runtime/LogUtilities.cs` file. It uses `LogUtilities.WriteString()` and `LogUtilities.WriteFixed6()` to write directly to a block of memory that is allocated once at startup and reused for the lifetime of the application. This block is written to the log file efficiently.
-
-In `LogUtilities` there are several functions to efficiently write different types of data to preallocated buffers:
-* `WriteString(char[] buf, ref int pos, string s)`
-* `WriteBool(char[] buf, ref int pos, bool v)`
-* `WriteInt(char[] buf, ref int pos, int v)`
-* `WriteLong(char[] buf, ref int pos, long v)`
-* `WriteFixed6(char[] buf, ref int pos, float v)`
-
 ### `Janelia.LogOptions`
 
 By default, installing this package makes logging run automatically, without the need for adding any script to any Unity `GameObject`.  Optionally, the `Janelia.LogOptions` component can be added to a `GameObject` to give additional controls over logging:
@@ -108,9 +95,9 @@ By default, installing this package makes logging run automatically, without the
 - `EnableLogging` [default: `true`]: when `false`, all logging is disabled.
 - `LogTotalMemory` [defaut: `false`]: when `true`, the value of `System.GC.GetTotalMemory(false)` is logged at each frame.
 
-### `Janelia.SaveAllFrames`
+### `Janelia.SaveFrames`
 
-This class adds the functionality for saving rendered frames.  It is a static class, so there is no need to manually add it to a scene.  It uses a companion class, `Janelia.SaveFrames`, to initiate a [coroutine](https://docs.unity3d.com/Manual/Coroutines.html) for saving the frames when a stand-alone executable is run with the `-saveFrames` commandline option.
+This class adds the functionality for saving rendered frames.  It is a static class, so there is no need to manually add it to a scene.  It initiates a [coroutine](https://docs.unity3d.com/Manual/Coroutines.html) for saving the frames when a stand-alone executable is run with the `-saveFrames` commandline option.
 
 The saving of frames can be tuned with several commandline options:
 
@@ -122,14 +109,14 @@ The saving of frames can be tuned with several commandline options:
 
 * `-output F`: write the saved frames to the folder, _F_, which can be relative to the directory where the executable is launched, or an absolute path.  If this option is omitted, then frames will be saved in the standard log folder, in a subfolder `Frames_D`, where _D_ is the current date and time.
 
-* `-format F`: specifies the format of the output. The default format (used when `-format` is not specified) is RGB in a PNG file.  With `-format jpg` (or `-format jpeg`) the output is a JPEG file, which may be faster to write than PNG.  With `-format greybin` (or `-format graybin`) the output will be a binary file with a single 0-255 value for each pixel (coming from the red channel).  This data can be reading into a NumPy array with the function `numpy.fromfile(filename, dtype=numpy.uint8)`.  Also supported is `-format greytxt` (or `-format graytxt`) with output being a text file with a single 0-255 value for each pixel (coming from the red channel), arranged to be read into a NumPy two-dimentional array of rows with the `numpy.loadtxt(filename)` function; this approach is slower than `-format greybin`, though.
+* `-format F`: specifies the format of the output. The default format (used when `-format` is not specified) is RGB in a PNG file.  With `-format greybin` (or `-format graybin`) the output will be a binary file with a single 0-255 value for each pixel (coming from the red channel).  This data can be reading into a NumPy array with the function `numpy.fromfile(filename, dtype=numpy.uint8)`.  Also supported is `-format greytxt` (or `-format graytxt`) with output being a text file with a single 0-255 value for each pixel (coming from the red channel), arranged to be read into a NumPy two-dimentional array of rows with the `numpy.loadtxt(filename)` function; this approach is slower than `-format greybin`, though.
 
 It is particularly useful to save the frames when playing back a log file, and remember that the log file, _L_, to play is specified by the `-playback L` commandline option (as implemented in the 
  [`KinematicSubject`](https://github.com/JaneliaSciComp/janelia-unity-toolkit/blob/master/org.janelia.collision-handling/Runtime/KinematicSubject.cs) object in the package [org.janelia.collision-handling](https://github.com/JaneliaSciComp/janelia-unity-toolkit/tree/master/org.janelia.collision-handling) package).
 
 There is no slowdown when saving frames (i.e., the total elapsed time is no different when playing back with or without saving frames) when using `-format greybin` or when using PNG format and a reduced resolution (from the `-height` argument).  Saving back full resolution PNG format may exhibit a slowdown, however.
 
-The companion class, `Janelia.SaveFrames`, can be used on its own for more specific forms of frame saving.
+Don't worry about the following message appearing in the `Player.log` file when saving frames: `'B8G8R8A8_SRGB' doesn't support ReadPixels usage on this platform. Async GPU readback failed.`  It seems to be spurious, and there are no signs that the saving of frames is failing.
 
  ### `simplify.py`
 

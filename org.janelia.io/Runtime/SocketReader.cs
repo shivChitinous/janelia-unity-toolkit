@@ -19,9 +19,6 @@ namespace Janelia
         // Setting this flag to `true` will reduce performance.,
         public bool debugSlowly = false;
 
-        // Count of received packets.
-        public volatile int packetCount = 0;
-
         // Only TCP needs `connectRetryMs`.
         public SocketReader(string hostname = "127.0.0.1", int port = 2000, int bufferSizeBytes = 1024, int readBufferCount = 240, bool useUDP = true, int connectRetryMs = 5000)
         {
@@ -68,9 +65,6 @@ namespace Janelia
         {
             return _ringBuffer.Take(ref taken, ref timestampMs);
         }
-
-        // Diagnostic: number of ring buffer overwrites (unread messages silently dropped).
-        public int OverwriteCount => _ringBuffer.overwriteCount;
 
         public bool ReadyToWrite()
         {
@@ -205,7 +199,6 @@ namespace Janelia
                         if (debugSlowly)
                             Debug.Log("SocketReader read " + length + " bytes");
 
-                        packetCount++;
                         _ringBuffer.Give(readBuffer);
                         Array.Clear(readBuffer, 0, length);
 
@@ -253,7 +246,6 @@ namespace Janelia
                                 if (debugSlowly)
                                     Debug.Log("SocketReader read " + length + " bytes");
 
-                                packetCount++;
                                 _ringBuffer.Give(readBuffer);
                                 Array.Clear(readBuffer, 0, length);
 

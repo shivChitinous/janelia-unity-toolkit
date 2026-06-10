@@ -134,18 +134,15 @@ Shader "Unlit/PanoramicDisplay"
 
             sampler2D _TexMask;
             float _MaskScale;
-            int _InvertColorAtMask0;
 
             sampler2D _TexColorCorrection;
             float _ColorCorrectionScale;
 
-            // A value of 2 enables a wider filter kernel (i.e., more blurring) at the bottom of the
+            // A value of 1 enables a wider filter kernel (i.e., more blurring) at the bottom of the
             // source camera images.  For an observer looking at an image projected on the ground,
             // the bottoms of the source camera images have the pixels that are close to the observer,
             // and thus large and in need of extra filtering to avoid aliasing.
-            // A value of 1 enables simple averaging with the north, south, east, west neighbors.
-            // Other values disable antialiasing altogether.
-            int _Antialiasing = 1;
+            int _BottomBias = 0;
 
             // A larger value (e.g., 1) reduces cracks between source cameras.
             float _CrackReduction = 0.01F;
@@ -161,7 +158,7 @@ Shader "Unlit/PanoramicDisplay"
             fixed4 averageAdjacent(float interU, float interV, float4 texelSize, Texture2D tex, SamplerState texSampler)
             {
                 float2 i = float2(interU, interV);
-                if (_Antialiasing == 1)
+                if (_BottomBias == 0)
                 {
                     fixed4 result = tex.Sample(texSampler, i);
 
@@ -175,7 +172,7 @@ Shader "Unlit/PanoramicDisplay"
 
                     return result;
                 }
-                else if (_Antialiasing == 2)
+                else
                 {
                     // Use a Gaussian filter with sample spacing that gets bigger closer to the bottom
                     // of the source images, because those pixels appear bigger and more aliased in a
@@ -210,11 +207,6 @@ Shader "Unlit/PanoramicDisplay"
                     }
 
                     return col / totalWeight;
-                }
-                else
-                {
-                    // No antialiasing.
-                    return tex.Sample(texSampler, i);
                 }
             }
 
@@ -334,18 +326,8 @@ Shader "Unlit/PanoramicDisplay"
                 }
 
                 float mask0 = tex2D(_TexMask, i.uv);
-                if (_InvertColorAtMask0)
-                {
-                    // Calibration overlay mode: pattern lines (mask0 ≈ 0) are color-inverted
-                    // for guaranteed contrast against any background; other pixels are unchanged.
-                    float patternWeight = 1.0 - mask0;
-                    result = lerp(result, fixed4(1, 1, 1, 1) - result, patternWeight);
-                }
-                else
-                {
-                    float mask = (1 - _MaskScale * mask0);
-                    result *= mask;
-                }
+                float mask = (1 - _MaskScale * mask0);
+                result *= mask;
 
                 fixed4 colorCorrection = tex2D(_TexColorCorrection, i.uv);
                 fixed4 scaledCorrection = fixed4(1, 1, 1, 1) - _ColorCorrectionScale * colorCorrection;
